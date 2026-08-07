@@ -3,3 +3,5 @@ __pycache__/
 venv/
 .env
 support-triage.code-workspace
+gemini-key.txt
+support-triage-roadmap.md

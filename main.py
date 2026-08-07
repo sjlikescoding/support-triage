@@ -1,8 +1,25 @@
 # main.py
 #
-# Phase A goal: prove that data can flow end-to-end through the pipeline.
-# Nothing here is "smart" yet - classify() and respond() are stubs.
-# That's intentional. We're proving the plumbing works before adding intelligence.
+# Phase B goal: classify() now makes a real AI call. Everything else
+# (respond(), routing, review) stays exactly as trivial as before.
+
+import os
+from google import genai
+
+# Read the API key from the environment variable, same as scratch_test.py.
+# Never hardcode the key directly in code.
+api_key = os.environ.get("GEMINI_API_KEY")
+
+if not api_key:
+    raise ValueError(
+        "GEMINI_API_KEY is not set. Did you run the $env:GEMINI_API_KEY=... "
+        "command in this terminal session?"
+    )
+
+client = genai.Client(api_key=api_key)
+
+# The only categories we want back. We'll tell the model to pick one of these.
+CATEGORIES = ["billing", "technical", "shipping", "general"]
 
 # --- Step A1: our fake "incoming tickets" ---
 # In real life these would come from an inbox or a database.
@@ -14,12 +31,30 @@ tickets = [
 ]
 
 
-# --- Step A2: classify() stub ---
-# Takes a ticket (a string) and returns a category.
-# For now it ALWAYS returns "general", no matter what the ticket says.
-# We'll make this real in Phase B.
+# --- Step B5: classify() is now real ---
+# Takes a ticket (a string), asks Gemini to pick one category, returns it.
 def classify(ticket):
-    return "general"
+    prompt = (
+        "You are classifying a customer support ticket into exactly one "
+        f"category from this list: {', '.join(CATEGORIES)}.\n\n"
+        f"Ticket: \"{ticket}\"\n\n"
+        "Reply with ONLY the category word, nothing else."
+    )
+
+    response = client.models.generate_content(
+        model="gemini-3.5-flash-lite",
+        contents=prompt,
+    )
+
+    # The model should reply with just the category, but let's be defensive:
+    # strip whitespace and lowercase it, and fall back to "general" if it
+    # returns something we don't recognize.
+    category = response.text.strip().lower()
+
+    if category not in CATEGORIES:
+        category = "general"
+
+    return category
 
 
 # --- Step A3: respond() stub ---
