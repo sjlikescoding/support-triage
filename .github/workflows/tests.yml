@@ -1,0 +1,32 @@
+name: Run tests
+
+# Run this workflow every time code is pushed to the repo.
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: check out the repo's code so the runner has access to it.
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Step 2: install Python.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Step 3: install our dependencies.
+      - name: Install dependencies
+        run: pip install google-genai pytest
+
+      # Step 4: run the tests.
+      # GEMINI_API_KEY is pulled from the repo secret we set up in GitHub,
+      # not hardcoded here. This is what lets main.py import successfully
+      # (it checks for this env var at import time, remember).
+      - name: Run tests
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m pytest test_main.py -v
