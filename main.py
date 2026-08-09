@@ -1,9 +1,12 @@
 # main.py
 #
-# Phase B goal: classify() now makes a real AI call. Everything else
-# (respond(), routing, review) stays exactly as trivial as before.
+# Phase D goal: classify() now also returns urgency, alongside category.
+# We ask the model for both in a single call (not two separate calls) and
+# get the result back as structured JSON. Everything else (routing,
+# drafting, review) stays exactly as trivial as before.
 
 import os
+import json
 from google import genai
 
 # Read the API key from the environment variable, same as scratch_test.py.
@@ -18,8 +21,9 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# The only categories we want back. We'll tell the model to pick one of these.
+# The only categories and urgency levels we want back.
 CATEGORIES = ["billing", "technical", "shipping", "general"]
+URGENCY_LEVELS = ["high", "medium", "low"]
 
 # --- Step A1: our fake "incoming tickets" ---
 # In real life these would come from an inbox or a database.
@@ -31,14 +35,21 @@ tickets = [
 ]
 
 
-# --- Step B5: classify() is now real ---
-# Takes a ticket (a string), asks Gemini to pick one category, returns it.
+# --- Step D1: classify() now returns BOTH category and urgency ---
+# Takes a ticket (a string), asks Gemini for both fields in one call,
+# and returns them as a dict, e.g. {"category": "billing", "urgency": "high"}.
+#
+# Why a dict instead of two separate return values or two functions?
+# A dict is easy to extend later (e.g. adding a "confidence" field) without
+# changing every place that calls classify().
 def classify(ticket):
     prompt = (
-        "You are classifying a customer support ticket into exactly one "
-        f"category from this list: {', '.join(CATEGORIES)}.\n\n"
+        "You are classifying a customer support ticket.\n\n"
         f"Ticket: \"{ticket}\"\n\n"
-        "Reply with ONLY the category word, nothing else."
+        f"Pick exactly one category from: {', '.join(CATEGORIES)}.\n"
+        f"Pick exactly one urgency level from: {', '.join(URGENCY_LEVELS)}.\n\n"
+        "Reply with ONLY valid JSON, nothing else, in exactly this shape:\n"
+        '{"category": "...", "urgency": "..."}'
     )
 
     response = client.models.generate_content(
@@ -46,15 +57,28 @@ def classify(ticket):
         contents=prompt,
     )
 
-    # The model should reply with just the category, but let's be defensive:
-    # strip whitespace and lowercase it, and fall back to "general" if it
-    # returns something we don't recognize.
-    category = response.text.strip().lower()
+    # The model should reply with pure JSON, but models sometimes wrap
+    # output in markdown code fences (```json ... ```) even when told not
+    # to. Strip those defensively before parsing.
+    raw_text = response.text.strip()
+    raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
+    try:
+        parsed = json.loads(raw_text)
+        category = str(parsed.get("category", "")).strip().lower()
+        urgency = str(parsed.get("urgency", "")).strip().lower()
+    except (json.JSONDecodeError, AttributeError):
+        # If the model returned something we couldn't parse at all,
+        # fall back to safe defaults rather than crashing the pipeline.
+        category = ""
+        urgency = ""
 
     if category not in CATEGORIES:
         category = "general"
+    if urgency not in URGENCY_LEVELS:
+        urgency = "medium"
 
-    return category
+    return {"category": category, "urgency": urgency}
 
 
 # --- Step A3: respond() stub ---
@@ -64,17 +88,20 @@ def respond(ticket, category):
     return "Thanks for reaching out. A member of our team will follow up shortly."
 
 
-# --- Step A4: wire it together ---
+# --- Step D3: wire it together ---
 # Loop over every ticket, run it through classify() and respond(),
-# and print what happened. This is our "does data flow end to end" check.
+# and print what happened, now including urgency.
 def main():
     for i, ticket in enumerate(tickets, start=1):
-        category = classify(ticket)
+        result = classify(ticket)
+        category = result["category"]
+        urgency = result["urgency"]
         response = respond(ticket, category)
 
         print(f"--- Ticket {i} ---")
         print(f"Text:     {ticket}")
         print(f"Category: {category}")
+        print(f"Urgency:  {urgency}")
         print(f"Response: {response}")
         print()
 
@@ -83,3 +110,4 @@ def main():
 # directly (e.g. `python main.py`), not if it's imported elsewhere later.
 if __name__ == "__main__":
     main()
+
