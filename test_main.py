@@ -10,30 +10,13 @@
 # slightly different wording even for the same input).
 
 from unittest.mock import patch, MagicMock
-from main import tickets, respond, classify, route
+from main import tickets, classify, route, draft_response
 
 
 def test_tickets_list_has_three_entries():
     # A simple sanity check: our fake ticket data hasn't accidentally
     # been changed to have more or fewer entries than we expect.
     assert len(tickets) == 3
-
-
-def test_respond_returns_canned_string():
-    # respond() is still a stub - it should always return the exact
-    # same string, no matter what ticket or category is passed in.
-    result = respond("any ticket text", "any category")
-    assert result == "Thanks for reaching out. A member of our team will follow up shortly."
-
-
-def test_respond_ignores_its_inputs():
-    # Since respond() is a stub, calling it with wildly different inputs
-    # should still give the same output. This test exists mainly to make
-    # it obvious later (in Phase G) when respond() stops being a stub -
-    # this test will start failing, which is a deliberate tripwire.
-    result_a = respond("ticket A", "billing")
-    result_b = respond("completely different ticket", "shipping")
-    assert result_a == result_b
 
 
 # --- Step D2: classify() tests using a mock ---
@@ -84,6 +67,38 @@ def test_classify_strips_markdown_code_fences(mock_client):
 
     assert result == {"category": "shipping", "urgency": "low"}
 
+
+# --- Step G2: draft_response() tests using a mock ---
+#
+# Same idea as the classify() mocked tests: replace the real API call
+# with a fake one so we can test how draft_response() handles the
+# response, without depending on whatever text the model happens to
+# generate that day.
+
+@patch("main.client")
+def test_draft_response_returns_model_text(mock_client):
+    # draft_response() shouldn't care that this text is fake, only that
+    # it correctly pulls it out of the response and returns it as-is.
+    fake_response = MagicMock()
+    fake_response.text = "We're sorry to hear that! A refund has been issued."
+    mock_client.models.generate_content.return_value = fake_response
+
+    result = draft_response("I want a refund", "billing")
+
+    assert result == "We're sorry to hear that! A refund has been issued."
+
+
+@patch("main.client")
+def test_draft_response_strips_markdown_code_fences(mock_client):
+    # strip_fencing() is shared with classify() - this confirms it still
+    # behaves correctly on plain (non-JSON) text, not just JSON.
+    fake_response = MagicMock()
+    fake_response.text = "```\nThanks, we'll look into it right away.\n```"
+    mock_client.models.generate_content.return_value = fake_response
+
+    result = draft_response("where is my package", "shipping")
+
+    assert result == "Thanks, we'll look into it right away."
 
 # --- Step E2: route() tests ---
 #

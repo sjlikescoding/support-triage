@@ -64,11 +64,7 @@ def classify(ticket):
         contents=prompt,
     )
 
-    # The model should reply with pure JSON, but models sometimes wrap
-    # output in markdown code fences (```json ... ```) even when told not
-    # to. Strip those defensively before parsing.
-    raw_text = response.text.strip()
-    raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    raw_text = strip_fencing(response)
 
     try:
         parsed = json.loads(raw_text)
@@ -87,12 +83,33 @@ def classify(ticket):
 
     return {"category": category, "urgency": urgency}
 
+# The AI model should reply with pure JSON, but models sometimes wrap
+# output in markdown code fences (```json ... ```) even when told not
+# to. Strip those defensively before parsing.
+def strip_fencing(response):
+    raw_text = response.text.strip()
+    raw_text = raw_text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    return raw_text
 
-# --- Step A3: respond() stub ---
-# Takes a ticket and its category, returns a canned response string.
-# Also intentionally dumb for now - same response every time.
-def respond(ticket, category):
-    return "Thanks for reaching out. A member of our team will follow up shortly."
+
+# --- Step G1: draft_response() - real API call for response ---
+# Will replace the calls to respond() stub with this new function.
+# (Only for "auto" responses)
+def draft_response(ticket, category):
+    draft_prompt = (
+        "Draft a response to the following customer ticket, maximum two lines.\n\n"
+        f"Ticket text: {ticket}\n"
+        f"Category: {category}\n"
+        )
+
+    drafted_response = client.models.generate_content(
+        model="gemini-3.5-flash-lite",
+        contents=draft_prompt,
+    )
+
+    response_text = strip_fencing(drafted_response)
+
+    return response_text
 
 
 # --- Step E1: route() - our first real decision point ---
@@ -130,7 +147,7 @@ def main():
         print(f"Routing:  {decision}")
 
         if decision == "auto":
-            response = respond(ticket, category)
+            response = draft_response(ticket, category)
             print(f"Response: {response}")
         else:
             print("Response: (sent to human review queue - no draft yet)")
