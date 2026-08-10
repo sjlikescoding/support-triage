@@ -8,15 +8,22 @@
 import os
 import json
 from google import genai
+from dotenv import load_dotenv
 
-# Read the API key from the environment variable, same as scratch_test.py.
+# Load variables from a local .env file (if one exists) into the environment.
+# This means GEMINI_API_KEY no longer needs to be set manually every
+# terminal/debug session - it's read from .env once, automatically.
+# .env is gitignored, so the real key never ends up in version control.
+load_dotenv()
+
+# Read the API key from the environment variable.
 # Never hardcode the key directly in code.
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if not api_key:
     raise ValueError(
-        "GEMINI_API_KEY is not set. Did you run the $env:GEMINI_API_KEY=... "
-        "command in this terminal session?"
+        "GEMINI_API_KEY is not set. Create a .env file in this folder "
+        "with a line like: GEMINI_API_KEY=your-key-here"
     )
 
 client = genai.Client(api_key=api_key)
