@@ -10,7 +10,7 @@
 # slightly different wording even for the same input).
 
 from unittest.mock import patch, MagicMock
-from main import tickets, respond, classify
+from main import tickets, respond, classify, route
 
 
 def test_tickets_list_has_three_entries():
@@ -83,4 +83,40 @@ def test_classify_strips_markdown_code_fences(mock_client):
     result = classify("where is my order")
 
     assert result == {"category": "shipping", "urgency": "low"}
+
+
+# --- Step E2: route() tests ---
+#
+# route() is pure logic - no API calls, no mocking needed. Just plain
+# input -> expected output checks, covering each rule and how they
+# interact when both could apply at once.
+
+def test_high_urgency_routes_to_human_regardless_of_category():
+    # The urgency rule should apply no matter what the category is.
+    assert route("technical", "high") == "human_only"
+    assert route("shipping", "high") == "human_only"
+    assert route("general", "high") == "human_only"
+
+
+def test_billing_routes_to_human_regardless_of_urgency():
+    # The billing rule should apply even at low urgency.
+    assert route("billing", "low") == "human_only"
+    assert route("billing", "medium") == "human_only"
+
+
+def test_billing_and_high_urgency_together_still_routes_to_human():
+    # Both rules pointing the same way shouldn't cause any weirdness -
+    # still just "human_only", not some special third outcome.
+    assert route("billing", "high") == "human_only"
+
+
+def test_non_billing_low_or_medium_urgency_routes_to_auto():
+    # The "safe" cases: nothing risky about category or urgency, so
+    # these should be allowed through automatically.
+    assert route("technical", "low") == "auto"
+    assert route("technical", "medium") == "auto"
+    assert route("shipping", "low") == "auto"
+    assert route("shipping", "medium") == "auto"
+    assert route("general", "low") == "auto"
+    assert route("general", "medium") == "auto"
 

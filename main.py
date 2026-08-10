@@ -95,21 +95,46 @@ def respond(ticket, category):
     return "Thanks for reaching out. A member of our team will follow up shortly."
 
 
-# --- Step D3: wire it together ---
-# Loop over every ticket, run it through classify() and respond(),
-# and print what happened, now including urgency.
+# --- Step E1: route() - our first real decision point ---
+# Pure function: no API calls, no side effects, just logic. Given a
+# category and urgency, decide whether this ticket is safe to auto-handle
+# or needs a human to look at it first.
+#
+# Rule (deliberately conservative for a first version):
+#   - High urgency ALWAYS goes to a human, regardless of category.
+#   - Billing ALWAYS goes to a human, regardless of urgency, since money
+#     mistakes are costlier to get wrong than most other categories.
+#   - Everything else goes to auto.
+def route(category, urgency):
+    if urgency == "high":
+        return "human_only"
+    if category == "billing":
+        return "human_only"
+    return "auto"
+
+
+# --- Step E3: wire it together ---
+# Loop over every ticket, classify it, decide routing, and (for now) just
+# log what WOULD happen next. Drafting doesn't exist yet - that's Phase G.
 def main():
     for i, ticket in enumerate(tickets, start=1):
         result = classify(ticket)
         category = result["category"]
         urgency = result["urgency"]
-        response = respond(ticket, category)
+        decision = route(category, urgency)
 
         print(f"--- Ticket {i} ---")
         print(f"Text:     {ticket}")
         print(f"Category: {category}")
         print(f"Urgency:  {urgency}")
-        print(f"Response: {response}")
+        print(f"Routing:  {decision}")
+
+        if decision == "auto":
+            response = respond(ticket, category)
+            print(f"Response: {response}")
+        else:
+            print("Response: (sent to human review queue - no draft yet)")
+
         print()
 
 
