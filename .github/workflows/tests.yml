@@ -19,8 +19,10 @@ jobs:
           python-version: "3.12"
 
       # Step 3: install our dependencies.
+      # Reads from requirements.txt so this list can never drift out of
+      # sync with what's actually needed locally - one source of truth.
       - name: Install dependencies
-        run: pip install google-genai pytest
+        run: pip install -r requirements.txt
 
       # Step 4: run the tests.
       # GEMINI_API_KEY is pulled from the repo secret we set up in GitHub,
