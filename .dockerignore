@@ -1,0 +1,16 @@
+# .dockerignore
+#
+# Same idea as .gitignore, but for what gets sent into the Docker build
+# context. Keeps the image smaller and avoids accidentally baking in
+# things like your .env file (which contains your real API key).
+
+.env
+.git
+.gitignore
+__pycache__/
+*.pyc
+.pytest_cache/
+README.md
+support-triage-roadmap.md
+scratch_test.py
+.github/
