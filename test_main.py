@@ -16,7 +16,7 @@ from main import tickets, classify, route, draft_response
 def test_tickets_list_has_three_entries():
     # A simple sanity check: our fake ticket data hasn't accidentally
     # been changed to have more or fewer entries than we expect.
-    assert len(tickets) == 3
+    assert len(tickets) == 999
 
 
 # --- Step D2: classify() tests using a mock ---
